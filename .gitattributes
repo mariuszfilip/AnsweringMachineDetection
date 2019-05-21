@@ -1,0 +1,4 @@
+models/model.pth filter=lfs diff=lfs merge=lfs -text
+fastai_models/amd-stage1 filter=lfs diff=lfs merge=lfs -text
+models/amd-stage1.pth filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text

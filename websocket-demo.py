@@ -22,17 +22,22 @@ import tornado.web
 import webrtcvad
 from tornado.web import url
 import json
-
 from base64 import b64decode
 import nexmo
 import collections
 
+from pathlib import Path
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import specgram
 
-import numpy as np
-from scipy.io import wavfile
+from fastai import *
+from fastai.vision import *
+
 import librosa
-import pickle
-from google.cloud import storage
+import librosa.display
+import requests
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -65,6 +70,12 @@ MY_LVN = os.getenv("MY_LVN")
 APP_ID = os.getenv("APP_ID")
 PROJECT_ID = os.getenv("PROJECT_ID")
 CLOUD_STORAGE_BUCKET = os.getenv("CLOUD_STORAGE_BUCKET")
+
+model_file_url = 'https://www.dropbox.com/s/lds8bwm46yrtqig/amd-stage1?dl=0'
+model_file_name = 'amd-stage1'
+classes = ['beep', 'speech']
+
+path = Path(__file__).parent
 
 def _get_private_key():
     try:
@@ -107,68 +118,66 @@ class BufferedPipe(object):
         self.count = 0
         self.payload = b''
 
+class FastAI(object):
+    def __init__(self):
+        self.learn = self.setup_learner()
+
+    def download_file(self, url, dest):
+
+        if dest.exists():
+            print("already downloaded");
+            return
+        r = requests.get(url)
+        print(r)
+        open(dest, 'wb').write(r.content)
+
+    def setup_learner(self):
+        learn = load_learner(path/'models',f'{model_file_name}.pth')
+        return learn
+
+    def predict_from_file(self,file):
+      print("loading file",file)
+      samples, sample_rate = librosa.load(file)
+      fig = plt.figure(figsize=[0.72,0.72])
+      ax = fig.add_subplot(111)
+      ax.axes.get_xaxis().set_visible(False)
+      ax.axes.get_yaxis().set_visible(False)
+      ax.set_frame_on(False)
+      filename  = file.split("/")[-1].replace("wav","png")
+      print(filename)
+      S = librosa.feature.melspectrogram(y=samples, sr=sample_rate)
+      librosa.display.specshow(librosa.power_to_db(S, ref=np.max))
+      plt.savefig(filename, dpi=400, bbox_inches='tight',pad_inches=0)
+      plt.close('all')
+      img = open_image(filename)
+      predict = self.learn.predict(img)
+      self.removeFile(file)
+      return predict
+
+    def removeFile(self,wav_file):
+        os.remove(wav_file)
+        png_file  = wav_file.split("/")[-1].replace("wav","png")
+        os.remove(png_file)
+
 class AudioProcessor(object):
-    def __init__(self, path, client):
+    def __init__(self, path, fastai):
         self._path = path
-        self.client = client
+        self.fastai = fastai
+
     def process(self, count, payload, id):
-        if count > CLIP_MIN_FRAMES:  # If the buffer is less than CLIP_MIN_MS, ignore it
-            fn = "{}rec-{}-{}.wav".format('', id, datetime.datetime.now().strftime("%Y%m%dT%H%M%S"))
+        if count > CLIP_MIN_FRAMES :  # If the buffer is less than CLIP_MIN_MS, ignore it
+            print("record clip")
+            fn = "rec-{}-{}.wav".format(id,datetime.datetime.now().strftime("%Y%m%dT%H%M%S"))
             output = wave.open(fn, 'wb')
             output.setparams(
                 (1, 2, RATE, 0, 'NONE', 'not compressed'))
             output.writeframes(payload)
             output.close()
-            debug('File written {}'.format(fn))
-            self.process_file(fn)
-            info('Processing {} frames for {}'.format(str(count), id))
-            self.removeFile(fn)
+            pred_class, pred_idx, outputs = self.fastai.predict_from_file(fn)
+            print(pred_idx.item())
+            print(pred_class)
         else:
             info('Discarding {} frames'.format(str(count)))
-    def process_file(self, wav_file):
-        if loaded_model != None:
-            print("load file {}".format(wav_file))
-            X, sample_rate = librosa.load(wav_file, res_type='kaiser_fast')
-            X = librosa.resample(X, sample_rate, 16000)
-
-            duration = librosa.get_duration(X, sample_rate)
-            stft = np.abs(librosa.stft(X))
-            mfccs_40 = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T,axis=0)
-            chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sample_rate).T,axis=0)
-            mel = np.mean(librosa.feature.melspectrogram(y=X, sr=sample_rate,n_mels=128,fmax=8000).T,axis=0)
-            contrast = np.mean(librosa.feature.spectral_contrast(S=stft, sr=sample_rate).T,axis=0)
-            tonnetz = np.mean(librosa.feature.tonnetz(y=librosa.effects.harmonic(X),
-            sr=sample_rate).T,axis=0)
-
-            a = [mfccs_40, chroma, mel, contrast, tonnetz]
-
-            total_len = 0
-            for f in a:
-                total_len += f.shape[0]
-
-            features = np.vstack([np.empty((0,total_len)),np.hstack(a)])
-
-            prediction = loaded_model.predict(features)
-            # prediction = loaded_model.predict([mfccs_40])
-            print("prediction",prediction)
-
-            if prediction[0] == 0:
-                beep_captured = True
-                print("send_speech",uuids)
-                for id in uuids:
-                    response = self.client.send_speech(id, text='Answering Machine Detected')
-                    print("send_speech response",response)
-                time.sleep(4)
-                for id in uuids:
-                    try:
-                        self.client.update_call(id, action='hangup')
-                    except:
-                        pass
-
-        else:
-            print("model not loaded")
-    def removeFile(self, wav_file):
-         os.remove(wav_file)
 
 class WSHandler(tornado.websocket.WebSocketHandler):
     def initialize(self):
@@ -205,6 +214,8 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                     # Force processing and clearing of the buffer
                     self.frame_buffer.process(self.id)
         else:
+            info(message)
+            fastai = FastAI()
             # Here we should be extracting the meta data that was sent and attaching it to the connection object
             data = json.loads(message)
             if data.get('content-type'):
