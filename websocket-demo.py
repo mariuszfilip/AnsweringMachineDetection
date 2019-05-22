@@ -74,6 +74,7 @@ model_file_name = 'amd-stage1'
 classes = ['beep', 'speech']
 
 path = Path(__file__).parent
+nexmo_client = None
 
 def _get_private_key():
     try:
@@ -85,7 +86,6 @@ def _get_private_key():
     return private_key
 
 PRIVATE_KEY = _get_private_key()
-client = nexmo.Client(application_id=APP_ID, private_key=PRIVATE_KEY)
 
 class BufferedPipe(object):
     def __init__(self, max_frames, sink):
@@ -157,10 +157,32 @@ class FastAI(object):
         png_file  = wav_file.split("/")[-1].replace("wav","png")
         os.remove(png_file)
 
+class NexmoClient(object):
+    def __init__(self):
+        self.nexmo_client = nexmo.Client(application_id=APP_ID, private_key=PRIVATE_KEY)
+    def hangup(self,conversation_uuid):
+        for uuid in conversation_uuids[conversation_uuid]:
+            try:
+                response = self.nexmo_client.update_call(uuid, action='hangup')
+                print("hangup uuid {} response: {}".format(uuid, response))
+            except Exception as e:
+                print(e)
+    def speak(self, conversation_uuid):
+         for uuid in conversation_uuids[conversation_uuid]:
+            try:
+                response = self.nexmo_client.send_speech(uuid, text='Answering Machine Detected')
+                print("response", response)
+            except Exception as e:
+                print(e)
+                pass
+
+
+
 class AudioProcessor(object):
-    def __init__(self, path, fastai):
+    def __init__(self, path, fastai, conversation_uuid):
         self._path = path
         self.fastai = fastai
+        self.conversation_uuid = conversation_uuid
 
     def process(self, count, payload, id):
         if count > CLIP_MIN_FRAMES :  # If the buffer is less than CLIP_MIN_MS, ignore it
@@ -172,8 +194,15 @@ class AudioProcessor(object):
             output.writeframes(payload)
             output.close()
             pred_class, pred_idx, outputs = self.fastai.predict_from_file(fn)
-            print(pred_idx.item())
             print(pred_class)
+            print(pred_idx.item())
+            print(outputs)
+
+            print(self.conversation_uuid)
+
+            if pred_idx.item() == 0:
+                nexmo_client.speak(self.conversation_uuid)
+
         else:
             info('Discarding {} frames'.format(str(count)))
 
@@ -241,13 +270,8 @@ class EventHandler(tornado.web.RequestHandler):
 
         if data["status"] == "completed":
             conversation_uuid = data["conversation_uuid"]
-            for uuid in conversation_uuids[conversation_uuid]:
-                print("hangup uuid",uuid)
-                try:
-                    response = client.update_call(uuid, action='hangup')
-                    print(response)
-                except Exception as e:
-                    print(e)
+            nexmo_client.hangup(conversation_uuid)
+            conversation_uuids[conversation_uuid].clear()
         self.content_type = 'text/plain'
         self.write('ok')
         self.finish()
@@ -342,6 +366,8 @@ class PingHandler(tornado.web.RequestHandler):
 
 def main():
     try:
+        global nexmo_client
+        nexmo_client = NexmoClient()
         logging.basicConfig(
             level=logging.INFO,
             format="%(levelname)7s %(message)s",
