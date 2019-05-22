@@ -269,16 +269,18 @@ class EnterPhoneNumberHandler(tornado.web.RequestHandler):
                 "maxDigits":12,
                 "submitOnHash":True
               }
+
             ]
         self.write(json.dumps(ncco))
         self.set_header("Content-Type", 'application/json; charset="utf-8"')
         self.finish()
 
+
 class AcceptNumberHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
-    def get(self):
-        # data = json`.loads(self.request.body)
-        # print(data)`
+    def post(self):
+        data = json.loads(self.request.body)
+        print(data)
         ncco = [
               {
                 "action": "talk",
@@ -286,27 +288,27 @@ class AcceptNumberHandler(tornado.web.RequestHandler):
               },
              {
              "action": "connect",
-              "eventUrl": [self.request.protocol +"://" + self.request.host  + "/event"],
+              # "eventUrl": [self.request.protocol +"://" + self.request.host  + "/event"],
                "from": MY_LVN,
                "endpoint": [
                  {
                    "type": "phone",
-                   "number": CONNECT_NUMBER
+                   "number": data["dtmf"]
                  }
                ]
              },
               {
                  "action": "connect",
-                 "eventUrl": [self.request.protocol +"://" + self.request.host  +"/event"],
+                 # "eventUrl": [self.request.protocol +"://" + self.request.host  +"/event"],
                  "from": MY_LVN,
                  "endpoint": [
                      {
                         "type": "websocket",
                         "uri" : "ws://"+self.request.host +"/socket",
                         "content-type": "audio/l16;rate=16000",
-                        # "headers": {
-                        #     "uuid":data["uuid"]
-                        # }
+                        "headers": {
+                            "uuid":data["uuid"]
+                        }
                      }
                  ]
                }
@@ -349,8 +351,9 @@ def main():
         application = tornado.web.Application([
 			url(r"/ping", PingHandler),
             (r"/event", EventHandler),
-            (r"/ncco", AcceptNumberHandler),
+            (r"/ncco", EnterPhoneNumberHandler),
             (r"/recording", RecordHandler),
+            (r"/ivr", AcceptNumberHandler),
             url(r"/(.*)", WSHandler),
         ])
         http_server = tornado.httpserver.HTTPServer(application)
