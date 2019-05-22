@@ -49,13 +49,11 @@ logging.captureWarnings(True)
 # Constants:
 MS_PER_FRAME = 20  # Duration of a frame in ms
 RATE = 16000
-SILENCE = 10  # How many continuous frames of silence determine the end of a phrase
-CLIP_MIN_MS = 200  # ms - the minimum audio clip that will be used
-MAX_LENGTH = 5000  # Max length of a sound clip for processing in ms
+SILENCE = 12  # How many continuous frames of silence determine the end of a phrase
+CLIP_MIN_MS = 350  # ms - the minimum audio clip that will be used
+MAX_LENGTH = 4000  # Max length of a sound clip for processing in ms
 VAD_SENSITIVITY = 3
 CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
-CONVERSATION_NAME = "my_conf"
-CONNECT_NUMBER = "14082488718"
 
 # Global variables
 conns = {}
