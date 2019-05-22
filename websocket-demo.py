@@ -217,9 +217,9 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             # Here we should be extracting the meta data that was sent and attaching it to the connection object
             data = json.loads(message)
             if data.get('content-type'):
-                uuid = data.get('uuid')
+                conversation_uuid = data.get('conversation_uuid')
                 self.processor = AudioProcessor(
-                    self.path, fastai).process
+                    self.path, fastai, conversation_uuid).process
                 self.frame_buffer = BufferedPipe(MAX_LENGTH // MS_PER_FRAME, self.processor)
                 self.write_message('ok')
 
@@ -305,7 +305,7 @@ class AcceptNumberHandler(tornado.web.RequestHandler):
                         "uri" : "ws://"+self.request.host +"/socket",
                         "content-type": "audio/l16;rate=16000",
                         "headers": {
-                            "uuid":data["uuid"]
+                            "conversation_uuid":data["conversation_uuid"]
                         }
                      }
                  ]
