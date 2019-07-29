@@ -32,6 +32,7 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import specgram
 
+from fastai_audio import *
 from fastai import *
 from fastai.vision import *
 
