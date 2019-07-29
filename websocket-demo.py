@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
 from __future__ import absolute_import, print_function
+import glob
 import wave
+import random
+import struct
 import datetime
 import argparse
 import io
@@ -50,9 +53,9 @@ logging.captureWarnings(True)
 # Constants:
 MS_PER_FRAME = 20  # Duration of a frame in ms
 RATE = 16000
-SILENCE = 12  # How many continuous frames of silence determine the end of a phrase
-CLIP_MIN_MS = 350  # ms - the minimum audio clip that will be used
-MAX_LENGTH = 4000  # Max length of a sound clip for processing in ms
+SILENCE = 10 # How many continuous frames of silence determine the end of a phrase
+CLIP_MIN_MS = 200  # ms - the minimum audio clip that will be used
+MAX_LENGTH = 3000  # Max length of a sound clip for processing in ms
 VAD_SENSITIVITY = 3
 CLIP_MIN_FRAMES = CLIP_MIN_MS // MS_PER_FRAME
 
@@ -213,7 +216,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         self.frame_buffer = None
         # Setup the Voice Activity Detector
         self.tick = None
-        self.id = uuid.uuid4().hex
+        self.id = None#uuid.uuid4().hex
         self.vad = webrtcvad.Vad()
         # Level of sensitivity
         self.vad.set_mode(VAD_SENSITIVITY)
@@ -280,20 +283,25 @@ class EventHandler(tornado.web.RequestHandler):
 class EnterPhoneNumberHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def get(self):
-        ncco = [
-              {
-                "action": "talk",
-                "text": "Please enter a phone number to dial"
-              },
-              {
-                "action": "input",
-                "eventUrl": [self.request.protocol +"://" + self.request.host +"/ivr"],
-                "timeOut":10,
-                "maxDigits":12,
-                "submitOnHash":True
-              }
+        print(self.request)
+        ncco = []
+        if args.debug:
+            ncco = debugNCCO(self.request,self.get_argument("conversation_uuid"))
+        else:
+            ncco = [
+                  {
+                    "action": "talk",
+                    "text": "Please enter a phone number to dial"
+                  },
+                  {
+                    "action": "input",
+                    "eventUrl": [self.request.protocol +"://" + self.request.host +"/ivr"],
+                    "timeOut":10,
+                    "maxDigits":12,
+                    "submitOnHash":True
+                  }
 
-            ]
+                ]
         self.write(json.dumps(ncco))
         self.set_header("Content-Type", 'application/json; charset="utf-8"')
         self.finish()
@@ -375,6 +383,7 @@ def main():
         )
         application = tornado.web.Application([
 			url(r"/ping", PingHandler),
+            (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": ""}),
             (r"/event", EventHandler),
             (r"/ncco", EnterPhoneNumberHandler),
             (r"/recording", RecordHandler),
