@@ -1,0 +1,10 @@
+runtime: custom
+env: flex
+env_variables:
+  CLOUD_STORAGE_BUCKET: amd-recordings.appspot.com
+  GOOGLE_APPLICATION_CREDENTIALS: amd-recordings-ccb5aa3253dd.json
+  APP_ID: 7c54cd2c-5984-44b3-af1d-3f8a9bc5129e
+  MY_LVN: 12066202671
+  PROJECT_ID: amd-recordings
+  PRIVATE_KEY: 7c54cd2c-5984-44b3-af1d-3f8a9bc5129e.key
+  ANSWERING_MACHINE_TEXT: Answering Machine Detected
