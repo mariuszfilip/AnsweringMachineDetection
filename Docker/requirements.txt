@@ -1,2 +1,5 @@
 ipython
 fastai
+nexmo
+tornado==4.2
+webrtcvad
