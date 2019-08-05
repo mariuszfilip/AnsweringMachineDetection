@@ -67,15 +67,15 @@ APP_ID = os.getenv("APP_ID")
 PROJECT_ID = os.getenv("PROJECT_ID")
 CLOUD_STORAGE_BUCKET = os.getenv("CLOUD_STORAGE_BUCKET")
 
-ANSWERING_MACHINE_TEXT = "hello" #os.getenv("ANSWERING_MACHINE_TEXT")
+ANSWERING_MACHINE_TEXT = os.getenv("ANSWERING_MACHINE_TEXT")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("debug",nargs='?')
 args = parser.parse_args()
 
-# from google.cloud import storage
-# storage_client = storage.Client()
-# bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
+from google.cloud import storage
+storage_client = storage.Client()
+bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
 
 def _get_private_key():
     try:
@@ -223,10 +223,10 @@ class AudioProcessor(object):
 
     def upload_to_gcp(self, wav_file, conversation_uuid):
         data = conversation_uuids[conversation_uuid][0]
-        # if PROJECT_ID and CLOUD_STORAGE_BUCKET:
-        #     blob = bucket.blob("split_recordings/"+data["from"]+"_"+conversation_uuid + "/"+wav_file)
-        #     blob.upload_from_filename(wav_file, content_type="audio/wav")
-        #     debug('File uploaded.')
+        if PROJECT_ID and CLOUD_STORAGE_BUCKET:
+            blob = bucket.blob("split_recordings/"+data["from"]+"_"+conversation_uuid + "/"+wav_file)
+            blob.upload_from_filename(wav_file, content_type="audio/wav")
+            debug('File uploaded.')
 
 
 
@@ -379,10 +379,10 @@ class RecordHandler(tornado.web.RequestHandler):
         response = client.get_recording(data["recording_url"])
         fn = "call-{}.wav".format(data["conversation_uuid"])
 
-        # if PROJECT_ID and CLOUD_STORAGE_BUCKET:
-        #     blob = bucket.blob(fn)
-        #     blob.upload_from_string(response, content_type="audio/wav")
-        #     debug('File uploaded.')
+        if PROJECT_ID and CLOUD_STORAGE_BUCKET:
+            blob = bucket.blob(fn)
+            blob.upload_from_string(response, content_type="audio/wav")
+            debug('File uploaded.')
 
         self.write('ok')
         self.set_header("Content-Type", 'text/plain')
