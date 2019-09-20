@@ -51,30 +51,15 @@ APP_ID = os.getenv("APP_ID")
 PROJECT_ID = os.getenv("PROJECT_ID")
 CLOUD_STORAGE_BUCKET = os.getenv("CLOUD_STORAGE_BUCKET")
 
-def _get_private_key():
-    try:
-        return os.environ['PRIVATE_KEY']
-    except:
-        with open('private.key', 'r') as f:
-            private_key = f.read()
-
-    return private_key
-
-PRIVATE_KEY = _get_private_key()
-if PROJECT_ID and CLOUD_STORAGE_BUCKET:
-    storage_client = storage.Client(PROJECT_ID)
-    bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
-
 # Global variables
 conns = {}
 clients = []
 conversation_uuids = dict()
 uuids = []
 
-loaded_model = pickle.load(open("models/GaussianNB-20190130T1233.pkl", "rb"))
+loaded_model = pickle.load(open("models/GaussianProcessClassifier-20190807T1859.pkl", "rb"))
 print(loaded_model)
-client = nexmo.Client(application_id=APP_ID, private_key=PRIVATE_KEY)
-print(client)
+
 class BufferedPipe(object):
     def __init__(self, max_frames, sink):
         """
@@ -339,11 +324,6 @@ def main():
             format="%(levelname)7s %(message)s",
         )
         application = tornado.web.Application([
-			url(r"/ping", PingHandler),
-            (r"/event", EventHandler),
-            (r"/ncco", EnterPhoneNumberHandler),
-            (r"/recording", RecordHandler),
-            (r"/ivr", AcceptNumberHandler),
             url(r"/(.*)", WSHandler),
         ])
         http_server = tornado.httpserver.HTTPServer(application)

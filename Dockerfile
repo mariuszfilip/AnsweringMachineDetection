@@ -31,12 +31,12 @@ RUN git clone https://github.com/mogwai/fastai_audio && \
   mv fastai_audio/audio . && \
   rm -rf fastai_audio/
 
-ADD app.py /usr/src/app
+ADD websocket.py /usr/src/app
 COPY /models /usr/src/app/models
-COPY 7c54cd2c-5984-44b3-af1d-3f8a9bc5129e.key /usr/src/app/7c54cd2c-5984-44b3-af1d-3f8a9bc5129e.key
-COPY amd-recordings-ccb5aa3253dd.json /usr/src/app/amd-recordings-ccb5aa3253dd.json
+#COPY 7c54cd2c-5984-44b3-af1d-3f8a9bc5129e.key /usr/src/app/7c54cd2c-5984-44b3-af1d-3f8a9bc5129e.key
+#COPY amd-recordings-ccb5aa3253dd.json /usr/src/app/amd-recordings-ccb5aa3253dd.json
 #COPY /sample_files /usr/src/app/sample_files
-COPY /test_files /usr/src/app/test_files
-COPY .env /usr/src/app/.env
+#COPY /test_files /usr/src/app/test_files
+#COPY .env /usr/src/app/.env
 EXPOSE 8000
-CMD [ "python", "./app.py"]
+CMD [ "python", "./websocket.py"]
